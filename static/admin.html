@@ -84,6 +84,19 @@
     .history-table button:hover { background: var(--foam); }
     .req-list { font-size: 13px; color: var(--muted); margin: 0 0 16px; padding-left: 20px; }
     .req-list li { margin-bottom: 4px; }
+    .static-banner {
+      background: rgba(255, 244, 214, 0.92);
+      border: 1px solid #ead28a;
+      color: #6a4d00;
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .static-banner strong { display: block; margin-bottom: 4px; font-size: 15px; }
+    .static-banner code { background: rgba(255,255,255,0.7); padding: 1px 6px; border-radius: 6px; }
+    .panel.disabled-panel { opacity: 0.55; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -95,7 +108,13 @@
   <div class="admin-wrap">
     <div class="admin-header">
       <h1>⚓ Data Admin Portal</h1>
-      <p>Upload daily Excel files to refresh the dashboard — no site redeploy needed. <a href="/">← Back to dashboard</a></p>
+      <p>Upload daily Excel files to refresh the dashboard — no site redeploy needed. <a href="index.html">← Back to dashboard</a></p>
+    </div>
+
+    <div id="staticBanner" class="static-banner" hidden>
+      <strong>Excel upload runs on your local server, not on GitHub Pages.</strong>
+      GitHub Pages can only host the website files. To validate and refresh data, start the app on your PC and open Admin there:
+      <br><code>python run.py</code> then <code>http://127.0.0.1:8050/admin</code>
     </div>
 
     <div class="panel">
@@ -134,25 +153,43 @@
     const fileList = document.getElementById('fileList');
     const uploadBtn = document.getElementById('uploadBtn');
     const statusBox = document.getElementById('statusBox');
+    const isStaticHost = /github\.io$/i.test(location.hostname) || location.protocol === 'file:';
     let selectedFiles = [];
+
+    async function readJson(res) {
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error('The upload server is not running. Use http://127.0.0.1:8050/admin after python run.py');
+      }
+    }
 
     function updateFileList() {
       fileList.textContent = selectedFiles.length
         ? selectedFiles.map(f => f.name).join(', ')
         : 'No files selected';
-      uploadBtn.disabled = selectedFiles.length === 0;
+      uploadBtn.disabled = isStaticHost || selectedFiles.length === 0;
     }
 
-    fileInput.onchange = () => { selectedFiles = [...fileInput.files]; updateFileList(); };
+    if (isStaticHost) {
+      document.getElementById('staticBanner').hidden = false;
+      document.querySelectorAll('.panel').forEach((el) => el.classList.add('disabled-panel'));
+      uploadBtn.disabled = true;
+      document.getElementById('currentStatus').textContent = 'Not available on the published website. Use the local Admin page to refresh data.';
+      document.getElementById('historyWrap').textContent = 'Upload history is stored on the local server only.';
+    } else {
+      fileInput.onchange = () => { selectedFiles = [...fileInput.files]; updateFileList(); };
 
-    dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
-    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
-    dropZone.ondrop = e => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      selectedFiles = [...e.dataTransfer.files].filter(f => f.name.endsWith('.xlsx'));
-      updateFileList();
-    };
+      dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
+      dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+      dropZone.ondrop = e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        selectedFiles = [...e.dataTransfer.files].filter(f => f.name.endsWith('.xlsx'));
+        updateFileList();
+      };
+    }
 
     function showStatus(msg, type) {
       statusBox.className = 'status-box ' + type;
@@ -160,6 +197,10 @@
     }
 
     uploadBtn.onclick = async () => {
+      if (isStaticHost) {
+        showStatus('✗ Uploads only work on the local server at http://127.0.0.1:8050/admin', 'err');
+        return;
+      }
       if (!selectedFiles.length) return;
       uploadBtn.disabled = true;
       showStatus('Processing… running consolidation (main.py). This may take a minute.', 'loading');
@@ -167,12 +208,12 @@
       selectedFiles.forEach(f => fd.append('files', f));
       try {
         const res = await fetch('/admin/upload', { method: 'POST', body: fd });
-        const data = await res.json();
+        const data = await readJson(res);
         if (data.ok) {
           showStatus(
             `✓ Dashboard refreshed · <strong>${data.rowCount?.toLocaleString()}</strong> rows · version ${data.version}` +
             (data.warnings?.length ? `<br>Warnings: ${data.warnings.join('; ')}` : '') +
-            `<br><a href="/">Open dashboard →</a>`,
+            `<br><a href="index.html">Open dashboard →</a>`,
             'ok'
           );
           loadStatus();
@@ -187,23 +228,25 @@
     };
 
     async function loadStatus() {
+      if (isStaticHost) return;
       try {
         const res = await fetch('/api/status');
-        const s = await res.json();
+        const s = await readJson(res);
         document.getElementById('currentStatus').innerHTML = s.lastRefresh
           ? `<p><strong>Last refresh:</strong> ${s.modified || s.lastRefresh}</p>
              <p><strong>Rows:</strong> ${(s.rowCount||0).toLocaleString()}</p>
              <p><strong>Version:</strong> ${s.version || '—'}</p>`
           : '<p>No data published yet. Upload source files above.</p>';
       } catch {
-        document.getElementById('currentStatus').textContent = 'Could not load status.';
+        document.getElementById('currentStatus').textContent = 'Could not load status. Is python run.py running?';
       }
     }
 
     async function loadHistory() {
+      if (isStaticHost) return;
       try {
         const res = await fetch('/admin/history');
-        const data = await res.json();
+        const data = await readJson(res);
         const items = data.history || [];
         if (!items.length) {
           document.getElementById('historyWrap').innerHTML = '<p style="color:var(--muted)">No uploads yet.</p>';
@@ -228,7 +271,7 @@
     async function rollback(version) {
       if (!confirm('Restore dashboard to version ' + version + '?')) return;
       const res = await fetch('/admin/rollback/' + version, { method: 'POST' });
-      const data = await res.json();
+      const data = await readJson(res);
       if (data.ok) { alert('Rollback complete.'); loadStatus(); loadHistory(); }
       else alert('Rollback failed: ' + (data.error || 'unknown'));
     }
