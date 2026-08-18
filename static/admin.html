@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Logistics Control Tower</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/ocean.css?v=20260818e">
+  <style>
+    body { background: #041824; min-height: 100vh; position: relative; }
+    .ocean-atmosphere { z-index: 0; }
+    .admin-wrap { position: relative; z-index: 1; max-width: 920px; margin: 0 auto; padding: 32px 20px 60px; }
+    .admin-header {
+      background:
+        linear-gradient(105deg, rgba(3, 22, 34, 0.82), rgba(8, 72, 92, 0.55)),
+        url("../assets/ocean-header.png") center 42% / cover no-repeat;
+      color: #fff;
+      border-radius: 22px;
+      padding: 32px 34px;
+      margin-bottom: 24px;
+      box-shadow: 0 18px 44px rgba(4,24,36,0.28);
+      border: 1px solid rgba(127, 230, 220, 0.22);
+    }
+    .admin-header h1 { margin: 0 0 8px; font-size: 28px; font-family: "Fraunces", Georgia, serif; }
+    .admin-header p { margin: 0; color: #c8ebe8; font-size: 14px; }
+    .admin-header a { color: var(--aqua); }
+    .panel {
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(18px) saturate(1.3);
+      border: 1px solid rgba(255,255,255,0.74);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 16px 40px rgba(4,28,40,0.12);
+    }
+    .panel h2 { margin: 0 0 16px; font-size: 18px; color: var(--navy); font-family: "Fraunces", Georgia, serif; }
+    .upload-zone {
+      border: 2px dashed var(--sea);
+      border-radius: 14px;
+      padding: 36px 24px;
+      text-align: center;
+      background: rgba(240, 250, 251, 0.75);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .upload-zone:hover, .upload-zone.dragover { background: #e2f6f3; border-color: var(--aqua); }
+    .upload-zone input { display: none; }
+    .upload-zone .icon { font-size: 40px; margin-bottom: 12px; }
+    .file-list { margin: 16px 0; font-size: 13px; color: var(--muted); }
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-primary { background: linear-gradient(180deg, #14556d, #0a3346); color: #fff; }
+    .btn-primary:hover { background: var(--navy2); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status-box {
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-top: 16px;
+      display: none;
+    }
+    .status-box.ok { display: block; background: #e6f7ef; color: #14654a; border: 1px solid #b8e6d0; }
+    .status-box.err { display: block; background: #fdecea; color: #9b2c2c; border: 1px solid #f5c6c6; }
+    .status-box.loading { display: block; background: #e8f4f8; color: var(--navy); border: 1px solid var(--line); }
+    .history-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+    .history-table th, .history-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+    .history-table th { color: var(--muted); text-transform: uppercase; font-size: 10px; }
+    .history-table button {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .history-table button:hover { background: var(--foam); }
+    .req-list { font-size: 13px; color: var(--muted); margin: 0 0 16px; padding-left: 20px; }
+    .req-list li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="ocean-atmosphere" aria-hidden="true">
+    <div class="ocean-bg"></div>
+    <div class="ocean-veil"></div>
+    <div class="ocean-light"></div>
+  </div>
+  <div class="admin-wrap">
+    <div class="admin-header">
+      <h1>⚓ Data Admin Portal</h1>
+      <p>Upload daily Excel files to refresh the dashboard — no site redeploy needed. <a href="/">← Back to dashboard</a></p>
+    </div>
+
+    <div class="panel">
+      <h2>Upload source files</h2>
+      <ul class="req-list">
+        <li><strong>Required:</strong> Liyana Ocean DSR + GoComet / Detailed Tracking</li>
+        <li><strong>Optional:</strong> ScanGlobal, CargoMar, Sinpex, Open Order, Corporate Hot List</li>
+        <li>Only <code>.xlsx</code> files · max 80 MB each</li>
+      </ul>
+
+      <label class="upload-zone" id="dropZone">
+        <input type="file" id="fileInput" multiple accept=".xlsx">
+        <div class="icon">📦</div>
+        <div><strong>Drop Excel files here</strong> or click to browse</div>
+        <div class="file-list" id="fileList">No files selected</div>
+      </label>
+
+      <button class="btn btn-primary" id="uploadBtn" disabled>Validate &amp; refresh dashboard</button>
+      <div class="status-box" id="statusBox"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Current status</h2>
+      <div id="currentStatus">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Upload history</h2>
+      <div id="historyWrap">Loading…</div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const fileList = document.getElementById('fileList');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const statusBox = document.getElementById('statusBox');
+    let selectedFiles = [];
+
+    function updateFileList() {
+      fileList.textContent = selectedFiles.length
+        ? selectedFiles.map(f => f.name).join(', ')
+        : 'No files selected';
+      uploadBtn.disabled = selectedFiles.length === 0;
+    }
+
+    fileInput.onchange = () => { selectedFiles = [...fileInput.files]; updateFileList(); };
+
+    dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      selectedFiles = [...e.dataTransfer.files].filter(f => f.name.endsWith('.xlsx'));
+      updateFileList();
+    };
+
+    function showStatus(msg, type) {
+      statusBox.className = 'status-box ' + type;
+      statusBox.innerHTML = msg;
+    }
+
+    uploadBtn.onclick = async () => {
+      if (!selectedFiles.length) return;
+      uploadBtn.disabled = true;
+      showStatus('Processing… running consolidation (main.py). This may take a minute.', 'loading');
+      const fd = new FormData();
+      selectedFiles.forEach(f => fd.append('files', f));
+      try {
+        const res = await fetch('/admin/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok) {
+          showStatus(
+            `✓ Dashboard refreshed · <strong>${data.rowCount?.toLocaleString()}</strong> rows · version ${data.version}` +
+            (data.warnings?.length ? `<br>Warnings: ${data.warnings.join('; ')}` : '') +
+            `<br><a href="/">Open dashboard →</a>`,
+            'ok'
+          );
+          loadStatus();
+          loadHistory();
+        } else {
+          showStatus('✗ ' + (data.error || 'Upload failed'), 'err');
+        }
+      } catch (e) {
+        showStatus('✗ ' + e.message, 'err');
+      }
+      uploadBtn.disabled = false;
+    };
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const s = await res.json();
+        document.getElementById('currentStatus').innerHTML = s.lastRefresh
+          ? `<p><strong>Last refresh:</strong> ${s.modified || s.lastRefresh}</p>
+             <p><strong>Rows:</strong> ${(s.rowCount||0).toLocaleString()}</p>
+             <p><strong>Version:</strong> ${s.version || '—'}</p>`
+          : '<p>No data published yet. Upload source files above.</p>';
+      } catch {
+        document.getElementById('currentStatus').textContent = 'Could not load status.';
+      }
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch('/admin/history');
+        const data = await res.json();
+        const items = data.history || [];
+        if (!items.length) {
+          document.getElementById('historyWrap').innerHTML = '<p style="color:var(--muted)">No uploads yet.</p>';
+          return;
+        }
+        document.getElementById('historyWrap').innerHTML = `
+          <table class="history-table">
+            <thead><tr><th>Version</th><th>Published</th><th>Rows</th><th></th></tr></thead>
+            <tbody>${items.map(h => `
+              <tr>
+                <td>${h.version}</td>
+                <td>${h.publishedAt || '—'}</td>
+                <td>${(h.rowCount||0).toLocaleString()}</td>
+                <td><button onclick="rollback('${h.version}')">Rollback</button></td>
+              </tr>`).join('')}</tbody>
+          </table>`;
+      } catch {
+        document.getElementById('historyWrap').textContent = 'Could not load history.';
+      }
+    }
+
+    async function rollback(version) {
+      if (!confirm('Restore dashboard to version ' + version + '?')) return;
+      const res = await fetch('/admin/rollback/' + version, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) { alert('Rollback complete.'); loadStatus(); loadHistory(); }
+      else alert('Rollback failed: ' + (data.error || 'unknown'));
+    }
+
+    loadStatus();
+    loadHistory();
+  </script>
+</body>
+</html>

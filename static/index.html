@@ -1,0 +1,254 @@
+  <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logistics Control Tower · Virginia Transformer Corp</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/ocean.css?v=20260818e">
+</head>
+<body>
+
+<!-- ═══ LANDING / MENU ═══ -->
+<section id="landing" class="page active">
+  <div class="landing-photo" aria-hidden="true"></div>
+  <div class="landing-veil" aria-hidden="true"></div>
+
+  <div class="land">
+    <div class="land-top">
+      <div class="vtc-logo">VT</div>
+      <div class="land-brand">
+        <small>Virginia · Georgia Transformer</small>
+        <strong>Global Logistics</strong>
+      </div>
+    </div>
+
+    <div class="land-hero">
+      <h1>Logistics Control Tower</h1>
+      <p class="tagline">Real-Time Visibility. Smarter Decisions. Better Performance.</p>
+
+      <div class="mode-grid">
+        <article class="mode-card air disabled">
+          <span class="coming-soon">Coming soon</span>
+          <div class="mode-photo">
+            <img src="/static/assets/mode-air.png" alt="Cargo airplane in flight">
+          </div>
+          <span class="mode-label">Air</span>
+          <h3>Air Freight</h3>
+          <p>Monitor air freight shipments and performance.</p>
+          <span class="mode-btn">Air</span>
+        </article>
+
+        <article class="mode-card ocean" onclick="showPage('analysis')" role="button" tabindex="0"
+          onkeydown="if(event.key==='Enter')showPage('analysis')">
+          <div class="mode-photo">
+            <img src="/static/assets/mode-ocean.png" alt="Ocean container ship">
+          </div>
+          <span class="mode-label">Ocean</span>
+          <h3>Ocean Freight</h3>
+          <p>Track ocean freight shipments and performance.</p>
+          <span class="mode-btn">Enter Dashboard →</span>
+        </article>
+
+        <article class="mode-card truck disabled">
+          <span class="coming-soon">Coming soon</span>
+          <div class="mode-photo">
+            <img src="/static/assets/mode-truck.png" alt="Freight semi-truck">
+          </div>
+          <span class="mode-label">Truck</span>
+          <h3>Truck Freight</h3>
+          <p>Track truck freight shipments and performance.</p>
+          <span class="mode-btn">Truck</span>
+        </article>
+      </div>
+    </div>
+
+    <div class="land-foot">
+      <span>Monitor · Analyze · Act — one control tower for global logistics</span>
+      <span class="stamp" id="landStamp">Loading shipment data…</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ANALYSIS DASHBOARD ═══ -->
+<section id="analysis" class="page ocean-page">
+  <div class="ocean-atmosphere" aria-hidden="true">
+    <div class="ocean-bg"></div>
+    <div class="ocean-veil"></div>
+    <div class="ocean-light"></div>
+  </div>
+  <header class="dash-header">
+    <button class="back" onclick="showPage('landing')">← Menu</button>
+    <div class="dash-title">
+      <small>Ocean freight</small>
+      <strong>Ocean Freight Analysis Dashboard</strong>
+    </div>
+    <div class="dash-tabs">
+      <button class="tab" onclick="refreshWorkbook()">↻ Refresh</button>
+      <button class="tab on">Overview</button>
+      <button class="tab" onclick="showDetail()">Detailed Report</button>
+      <button class="tab" onclick="showPage('performance')">Performance →</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="filtersA" class="filters"></div>
+    <div class="info-row">
+      <div class="window-note">DSR data from arrived within 2 weeks past and all future records.</div>
+      <div class="refresh-panel">
+        <span>Last refreshed</span>
+        <b id="refreshStamp">—</b>
+        <span id="refreshRows">—</span>
+      </div>
+    </div>
+    <div id="etaButtons" class="chips"></div>
+
+    <div class="kpis">
+      <div class="kpi"><label>Container #</label><b id="kTotal">—</b></div>
+      <div class="kpi"><label>Arriving in next 7 days #</label><b id="k7">—</b></div>
+      <div class="kpi"><label>Arriving next 14 days #</label><b id="k14">—</b></div>
+      <div class="kpi"><label>Delayed containers #</label><b id="kDelay">—</b></div>
+      <div class="kpi"><label>Arriving today #</label><b id="kToday">—</b></div>
+      <div class="kpi"><label>Hotlist #</label><b id="kHot">—</b></div>
+    </div>
+
+    <div class="grid">
+      <article class="card">
+        <h2>ETA performance</h2>
+        <div class="donut-box">
+          <div id="etaDonut" class="donut"><div id="etaCenter" class="center"></div></div>
+          <div id="etaLegend" class="legend"></div>
+        </div>
+      </article>
+      <article class="card">
+        <h2>Total shipment count by plants</h2>
+        <div id="plantBars" class="chart bars"></div>
+      </article>
+      <article class="card">
+        <h2>Total vendor by count</h2>
+        <div id="vendorBars" class="chart bars"></div>
+      </article>
+      <article class="card wide">
+        <h2>Total delivery variance</h2>
+        <div id="varianceCols" class="columns"></div>
+      </article>
+    </div>
+  </main>
+</section>
+
+<!-- ═══ DETAILED REPORT ═══ -->
+<section id="detail" class="page ocean-page">
+  <div class="ocean-atmosphere" aria-hidden="true">
+    <div class="ocean-bg"></div>
+    <div class="ocean-veil"></div>
+    <div class="ocean-light"></div>
+  </div>
+  <header class="dash-header">
+    <button class="back" onclick="showPage('analysis')">← Analysis</button>
+    <div class="dash-title">
+      <small>Ocean freight</small>
+      <strong>Detailed Report</strong>
+    </div>
+    <div class="dash-tabs">
+      <button class="tab" onclick="refreshWorkbook()">↻ Refresh</button>
+      <button class="tab" onclick="showPage('analysis')">← Overview</button>
+      <button class="tab" onclick="showPage('performance')">Performance →</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="filtersD" class="filters"></div>
+    <div class="window-note">Same 2-week operational window and filters as Analysis. Scroll horizontally to view shipment fields.</div>
+    <div id="etaButtonsD" class="chips"></div>
+    <article class="card">
+      <div class="tabletop">
+        <h2>All shipment fields <span id="rowCount" class="hint"></span></h2>
+        <div class="table-actions">
+          <input id="tableSearch" placeholder="Search displayed rows…">
+          <button type="button" class="download-btn" id="downloadDetailBtn" onclick="downloadDetailExcel()">
+            ↓ Download Excel
+          </button>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr id="tableHead"></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </article>
+  </main>
+</section>
+
+<!-- ═══ PERFORMANCE ═══ -->
+<section id="performance" class="page ocean-page">
+  <div class="ocean-atmosphere" aria-hidden="true">
+    <div class="ocean-bg"></div>
+    <div class="ocean-veil"></div>
+    <div class="ocean-light"></div>
+  </div>
+  <header class="dash-header">
+    <button class="back" onclick="showPage('analysis')">← Analysis</button>
+    <div class="dash-title">
+      <small>Ocean freight</small>
+      <strong>Performance Dashboard</strong>
+    </div>
+    <div class="dash-tabs">
+      <button class="tab" onclick="refreshWorkbook()">↻ Refresh</button>
+      <button class="tab" onclick="showDetail()">Detailed Report</button>
+      <button class="tab on">Performance</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="filtersP" class="filters"></div>
+    <div class="window-note">Strategic sliding window: shipments from the past 1 year through all future available records.</div>
+
+    <div class="kpis">
+      <div class="kpi"><label>Containers</label><b id="pTotal">—</b></div>
+      <div class="kpi"><label>Delivered</label><b id="pDelivered">—</b></div>
+      <div class="kpi"><label>In transit</label><b id="pTransit">—</b></div>
+      <div class="kpi"><label>Delayed arrival</label><b id="pDelayed">—</b></div>
+      <div class="kpi"><label>On-time arrival</label><b id="pOnTime">—</b></div>
+      <div class="kpi"><label>Avg port-to-port</label><b id="pAvg">—</b></div>
+    </div>
+
+    <div class="grid">
+      <article class="card"><h2>Container type</h2><div id="typeCols" class="columns"></div></article>
+      <article class="card"><h2>Arrival performance</h2><div id="arrivalCols" class="columns"></div></article>
+      <article class="card"><h2>LCL vs FCL</h2><div id="modeCols" class="columns"></div></article>
+      <article class="card">
+        <h2>Carrier / Forwarder performance
+          <span class="switcher">
+            <button type="button" id="byForwarder" class="on" onclick="setPerformanceGroup('Forwarder')">Forwarder</button>
+            <button type="button" id="byCarrier" onclick="setPerformanceGroup('Steamship Line')">Carrier</button>
+          </span>
+        </h2>
+        <div class="stack-legend">
+          <span><i style="background:#e95a5e"></i> Delayed</span>
+          <span><i style="background:#20b87a"></i> Early</span>
+          <span><i style="background:#8178cb"></i> On Time</span>
+        </div>
+        <div id="forwardStacks" class="stack"></div>
+      </article>
+      <article class="card"><h2>Departure performance</h2><div id="departureCols" class="columns"></div></article>
+      <article class="card">
+        <h2>Average port-to-port days
+          <span class="switcher">
+            <button type="button" id="avgByCarrier" class="on" onclick="setAverageGroup('Steamship Line')">Carrier</button>
+            <button type="button" id="avgByForwarder" onclick="setAverageGroup('Forwarder')">Forwarder</button>
+          </span>
+        </h2>
+        <div id="carrierBars" class="chart bars"></div>
+      </article>
+    </div>
+  </main>
+</section>
+
+<script src="/static/js/logic.js?v=20260818e"></script>
+<script src="/static/js/dashboard.js?v=20260818e"></script>
+</body>
+</html>
