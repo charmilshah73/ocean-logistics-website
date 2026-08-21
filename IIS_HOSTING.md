@@ -11,164 +11,150 @@
 | IIS serving this Flask app | Yes | **Yes** | Yes |
 | IIS serving only the `static` folder | Yes (UI only) | **No** | No |
 
-Upload works on IIS because Admin posts files to the Python backend. That backend writes into `data/`, runs the existing ETL (`v10_pkg`), and publishes `dashboard-data.json`. GitHub Pages cannot do any of that.
+Upload works on IIS because Admin posts files to the Python backend. That backend writes into `data/`, runs the bundled ETL (`etl_engine/main.py`), saves `data/output/Consolidated_Ocean_DSR.xlsx`, and publishes `dashboard-data.json`. GitHub Pages cannot do any of that.
+
+---
+
+## Fast path (recommended)
+
+Scripts under `deploy\iis\` copy the app to `C:\inetpub\ocean\logistics_website`, start Waitress on `127.0.0.1:8050`, and create an IIS site that reverse-proxies to it.
+
+### 1. One-time downloads (if missing)
+
+Install these on the Windows machine (reboot if prompted):
+
+- [URL Rewrite](https://www.iis.net/downloads/microsoft/url-rewrite)
+- [Application Request Routing (ARR)](https://www.iis.net/downloads/microsoft/application-request-routing)
+
+Python 3.11+ should already be on PATH.
+
+### 2. Run the installer as Administrator
+
+Open **PowerShell as Administrator**:
+
+```powershell
+cd "C:\Users\cshah\OneDrive - Virginia Transformer Corp\Project\ocean\logistics_website"
+powershell -ExecutionPolicy Bypass -File .\deploy\iis\Install-OceanIIS.ps1
+```
+
+Optional port change:
+
+```powershell
+.\deploy\iis\Install-OceanIIS.ps1 -SitePort 80
+```
+
+### 3. Open the site
+
+- Dashboard: `http://localhost:8080/`
+- Admin upload: `http://localhost:8080/admin`
+
+Daily Excel updates: upload in **Admin** on that IIS URL. You do **not** republish to GitHub. The URL stays the same.
+
+### 4. After code changes
+
+Re-run the installer (it preserves `data\`), or copy files into `C:\inetpub\ocean\logistics_website` and restart the scheduled task:
+
+```powershell
+Start-ScheduledTask -TaskName OceanLogisticsWaitress
+```
 
 ---
 
 ## What must be true for IIS upload to work
 
 1. IIS is reverse-proxying (or running) the **Flask app**, not only HTML/CSS/JS.
-2. The server has **Python 3** plus the packages in `requirements.txt`.
-3. The **`v10_pkg` folder stays next to this project** (same parent as `logistics_website`). Upload calls that ETL. If `v10_pkg` is missing, upload will fail.
-4. The IIS app-pool account can **read and write** these folders:
-   - `logistics_website\data\input`
-   - `logistics_website\data\staging`
-   - `logistics_website\data\archive`
-   - `logistics_website\data\current`
-5. Request size is large enough (this app allows about **80 MB** per file).
-6. The request timeout is long enough. Consolidation can take **1–2 minutes**.
-7. Users open the IIS site URL (intranet or localhost), then go to **`/admin`**, not the GitHub Pages URL.
-
-If those are true, uploading from a browser against your IIS site **will run** the same pipeline as local `python run.py`.
+2. The server has **Python 3** plus the packages in `requirements.txt` (including **Waitress**).
+3. Copy **this one folder** (`logistics_website`) onto the server (prefer `C:\inetpub\...`, not OneDrive). ETL lives at `etl_engine/main.py`.
+4. The account that runs Python can **read and write** `logistics_website\data\...`.
+5. Request size is large enough (~100 MB).
+6. Request timeout is long enough (ETL can take 1–2 minutes).
+7. Users open the **IIS** URL `/admin`, not the GitHub Pages URL.
 
 ---
 
 ## Recommended layout on the server
 
-Keep this structure (do not flatten it):
-
 ```
-C:\inetpub\ocean\
-  logistics_website\     ← this repo (Flask app)
-  v10_pkg\               ← existing ETL package (required for upload)
+C:\inetpub\ocean\logistics_website\     ← app + ETL + data
+C:\inetpub\ocean\iis_site\web.config    ← IIS reverse-proxy only
 ```
 
-Do **not** put the site root on `static\` only. The site root must be `logistics_website`.
+Do **not** point IIS at `static\` only.
 
 ---
 
-## Steps to host on IIS
+## Manual steps (if you prefer not to use the script)
 
-### 1. Install prerequisites on the Windows server (or your PC)
+### 1. Prerequisites
 
-- IIS with:
-  - Default Document
-  - Static Content
-  - **URL Rewrite**
-  - **Application Request Routing (ARR)** if you reverse-proxy to Python
-- Python 3.11 or 3.12 (64-bit), and check “Add python.exe to PATH”
-- Git (optional, to pull from GitHub)
+- IIS with Default Document, Static Content, **URL Rewrite**, **ARR**
+- Python 3.11+ on PATH
 
-### 2. Copy the app onto the machine
+### 2. Copy and install
 
-Put `logistics_website` and `v10_pkg` on a local disk (for example `C:\inetpub\ocean\`). Avoid relying on OneDrive sync for the live site — it can lock files during upload.
+```powershell
+robocopy "<your-repo>\logistics_website" "C:\inetpub\ocean\logistics_website" /MIR /XD .git .venv __pycache__
+cd C:\inetpub\ocean\logistics_website
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt
+```
 
-In `logistics_website`:
+### 3. Confirm Waitress without IIS
 
-- Create a virtual environment
-- Install `requirements.txt`
-- Also install a production WSGI server such as **Waitress** (Flask’s built-in server is for development only)
+```powershell
+.\deploy\iis\Start-OceanWaitress.ps1 -InstallRoot "C:\inetpub\ocean\logistics_website"
+```
 
-### 3. Confirm it runs without IIS first
+Open `http://127.0.0.1:8050` and `/admin`. Test an upload.
 
-From `logistics_website`, start the app bound to all interfaces (host `0.0.0.0`, port `8050`).
+### 4. IIS reverse-proxy
 
-Open:
+1. Create a site whose physical path contains `deploy\iis\web.config` (or the copy under `C:\inetpub\ocean\iis_site`).
+2. Enable ARR **Server Proxy Settings → Enable proxy**.
+3. Binding example: `http://localhost:8080`.
 
-- `http://127.0.0.1:8050` — dashboard
-- `http://127.0.0.1:8050/admin` — upload
+IIS is the public face; Waitress does the work.
 
-Do a test upload here. If this fails, IIS will also fail. Fix Python / `v10_pkg` / folder permissions first.
+### 5. Keep Waitress running after logoff
 
-### 4. Create an IIS site that reverse-proxies to Python
-
-This is the usual, reliable pattern:
-
-1. Create a Windows service or scheduled task that **always runs Waitress** (or equivalent) on `127.0.0.1:8050` with working directory `logistics_website`.
-2. In IIS, create a site (example bindings: `http://logistics.internal:80` or `http://localhost:8080`).
-3. Install **URL Rewrite + ARR**.
-4. Enable ARR proxy.
-5. Add a reverse-proxy rule: all requests to this IIS site go to `http://127.0.0.1:8050`.
-
-IIS then acts as the public face. Python still does the work. `/admin` upload hits the same Flask routes as local dev.
-
-Alternative (more IIS-native): **HttpPlatformHandler** so IIS starts `python` / Waitress itself. Same idea — IIS must start Python, not only serve files.
-
-### 5. Set IIS limits so large Excel files are accepted
-
-In IIS for this site:
-
-- Increase **maxAllowedContentLength** (suggest 100 MB or more)
-- Increase **uploadReadAheadSize** if large posts fail early
-- Increase **connection / request timeout** to at least 3–5 minutes (ETL is slow)
-
-Also raise the Python/Waitress timeout if you set one.
-
-### 6. Folder permissions
-
-Give the identity that runs Python (and the IIS app-pool identity if it writes files) **Modify** on:
-
-`logistics_website\data`
-
-If upload returns a permission error, this is the usual cause.
-
-### 7. Environment / binding
-
-- Listen on `0.0.0.0` if other PCs on the network will use the site.
-- Keep the process running after you log off (Windows service, not a leftover Command Prompt).
-- Open the Windows Firewall port if colleagues will use the IIS hostname.
-
-### 8. Smoke test after IIS is in front
-
-From a browser:
-
-1. Open the IIS site home page — landing + Ocean dashboard should load.
-2. Open `/admin`.
-3. Upload Liyana DSR + GoComet/Detailed Tracking (plus optional files).
-4. Wait until it says the dashboard refreshed.
-5. Go back to the dashboard and confirm KPIs/charts update **without** redeploying IIS.
-
-If step 3–4 work, hosting is correct.
+Use the scheduled task created by `Install-OceanIIS.ps1` (`OceanLogisticsWaitress`), or an equivalent Windows service.
 
 ---
 
 ## Will upload work from my machine against the IIS site?
 
-**Yes**, if you are talking to **your IIS-hosted Flask app**.
+**Yes**, if you use the **IIS-hosted** URL:
 
-- Browser on your PC → `http://your-iis-server/admin` → IIS → Python → ETL → `data/current` → dashboard refreshes.
-- You do **not** need to republish to GitHub after an upload.
-- Other users hitting the same IIS URL will see the new data after a page refresh.
+- Browser → `http://your-server:8080/admin` → IIS → Waitress → ETL → `data/current` → dashboard refreshes.
+- No GitHub republish after upload.
+- Other users see new data after a page refresh.
 
-**No**, if you:
-
-- Open the GitHub Pages URL and upload there
-- Point IIS only at the `static` folder (no Python)
-- Run IIS on a machine that cannot see `v10_pkg`
-- Run IIS from a synced OneDrive copy that locks `data\` files
+**No**, if you use GitHub Pages, or IIS pointed only at `static\`.
 
 ---
 
-## GitHub vs IIS — use both this way
+## GitHub vs IIS
 
 | Place | Purpose |
 |-------|---------|
 | GitHub | Source backup / code |
 | GitHub Pages | Optional UI demo (no live data, no upload) |
-| IIS (this app) | Real company site: dashboard + Admin upload |
+| IIS (this app) | Real company site: dashboard + Admin + Excel |
 
-Daily operations should use the **IIS URL**, not GitHub Pages.
+Daily operations should use the **IIS URL**.
 
 ---
 
 ## Checklist if something fails
 
+- **502 Bad Gateway**: Waitress not running, or ARR proxy not enabled. Start task `OceanLogisticsWaitress`; enable ARR proxy.
 - Dashboard loads but Admin errors with HTML/JSON parse: IIS is not forwarding `/admin` and `/api` to Python.
-- Upload starts then times out: raise IIS and Python timeouts.
-- Upload rejected as too large: raise IIS request size.
-- “Missing v10_pkg” / import errors: copy `v10_pkg` next to `logistics_website`.
-- Refresh succeeds locally but not on IIS: app-pool / Python service cannot write to `data\`.
-- Charts empty after upload: confirm `data\current\dashboard-data.json` was updated, then hard-refresh the browser.
+- Upload times out: raise IIS and Waitress timeouts (script sets ~5 minutes).
+- Upload rejected as too large: `maxAllowedContentLength` (script sets 100 MB).
+- ETL import errors: confirm `etl_engine\main.py` is inside the install folder.
+- Permission errors: `data\` needs Modify for the account running Waitress / IIS.
+- Charts empty after upload: confirm `data\current\dashboard-data.json` updated, then hard-refresh.
+- Excel file location: `data\output\Consolidated_Ocean_DSR.xlsx`.
 
 ---
 

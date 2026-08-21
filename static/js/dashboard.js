@@ -37,24 +37,58 @@ const Dashboard = (() => {
 
   function setupFilters(id, prefix) {
     $(id).innerHTML = filtersHTML(prefix);
-    document.querySelectorAll(`[data-prefix="${prefix}"]`).forEach((s) => {
-      const vals = [...new Set(all.map((r) => r[s.dataset.field]).filter(Boolean))]
-        .filter((v) => s.dataset.field !== "Forwarder" || v !== "Detailed Tracking")
-        .sort();
-      s.innerHTML += vals.map((v) => `<option>${L.esc(v)}</option>`).join("");
+    document.querySelectorAll(`#${id} [data-prefix="${prefix}"]`).forEach((s) => {
       s.onchange = prefix === "P" ? applyP : applyA;
     });
-    document.querySelector(`[data-reset="${prefix}"]`).onclick = () => {
-      document.querySelectorAll(`[data-prefix="${prefix}"]`).forEach((s) => (s.value = ""));
-      etaFilter = "";
-      document.querySelectorAll(".chip").forEach((b) => b.classList.remove("on"));
+    document.querySelector(`#${id} [data-reset="${prefix}"]`).onclick = () => {
+      document.querySelectorAll(`#filtersA [data-prefix="A"], #filtersD [data-prefix="A"], #filtersP [data-prefix="P"]`)
+        .forEach((s) => {
+          if (s.dataset.prefix === prefix) s.value = "";
+        });
+      if (prefix === "A") {
+        etaFilter = "";
+        document.querySelectorAll(".chip").forEach((b) => b.classList.remove("on"));
+      }
       prefix === "P" ? applyP() : applyA();
     };
   }
 
+  function windowRows(days) {
+    return L.base(all.filter(L.isOceanMot), days);
+  }
+
+  function refreshFilterOptions(prefix, days) {
+    const barId = prefix === "P" ? "filtersP" : "filtersA";
+    const bar = $(barId);
+    if (!bar) return;
+    const selects = [...bar.querySelectorAll("select")];
+    const windowed = windowRows(days);
+    selects.forEach((s) => {
+      const field = s.dataset.field;
+      const rows = windowed.filter((r) =>
+        selects.every((other) => other === s || L.fieldMatches(r, other.dataset.field, other.value))
+      );
+      let vals =
+        field === "Class"
+          ? [...new Set(rows.flatMap((r) => L.classTokens(r.Class)))].sort((a, b) =>
+              a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+            )
+          : [...new Set(rows.map((r) => r[field]).filter(Boolean))].sort();
+      if (field === "Forwarder") vals = vals.filter((v) => v !== "Detailed Tracking");
+      const keep = vals.includes(s.value) ? s.value : "";
+      s.innerHTML =
+        `<option value=""${keep === "" ? " selected" : ""}>All</option>` +
+        vals
+          .map((v) => `<option${v === keep ? " selected" : ""}>${L.esc(v)}</option>`)
+          .join("");
+      s.value = keep;
+    });
+  }
+
   function selected(prefix, r) {
-    return [...document.querySelectorAll(`[data-prefix="${prefix}"]`)].every(
-      (s) => !s.value || r[s.dataset.field] === s.value
+    const barId = prefix === "P" ? "filtersP" : "filtersA";
+    return [...$(barId).querySelectorAll("select")].every((s) =>
+      L.fieldMatches(r, s.dataset.field, s.value)
     );
   }
 
@@ -159,12 +193,14 @@ const Dashboard = (() => {
   }
 
   function applyA() {
+    refreshFilterOptions("A", 14);
     const population = L.collapse(
       L.base(all.filter(L.isOceanMot), 14).filter((r) => selected("A", r))
     );
     viewA = population.filter((r) => L.matchesEtaFilter(r, etaFilter));
     renderA();
     renderTable();
+    syncDetailFilters();
   }
 
   function renderA() {
@@ -246,7 +282,9 @@ const Dashboard = (() => {
 
   function getDetailExportRows() {
     const q = ($("tableSearch")?.value || "").toLowerCase();
-    return viewA.filter((r) => !q || Object.values(r).join(" ").toLowerCase().includes(q));
+    return viewA
+      .map((r) => L.withEtaColumns(r))
+      .filter((r) => !q || Object.values(r).join(" ").toLowerCase().includes(q));
   }
 
   async function downloadDetailExcel() {
@@ -327,6 +365,7 @@ const Dashboard = (() => {
   }
 
   function applyP() {
+    refreshFilterOptions("P", 365);
     viewP = L.collapse(L.base(all.filter(L.isOceanMot), 365).filter((r) => selected("P", r)));
     renderP();
   }
@@ -407,21 +446,31 @@ const Dashboard = (() => {
   }
 
   function syncDetailFilters() {
-    $("filtersD").innerHTML = $("filtersA").innerHTML;
-    document.querySelectorAll('#filtersD [data-prefix="A"]').forEach((s) => {
+    const source = $("filtersA");
+    const dest = $("filtersD");
+    if (!source || !dest) return;
+    const selected = [...source.querySelectorAll("select")].map((s) => [s.dataset.field, s.value]);
+    dest.innerHTML = source.innerHTML;
+    selected.forEach(([field, value]) => {
+      const box = dest.querySelector(`select[data-field="${CSS.escape(field)}"]`);
+      if (box) box.value = value;
+    });
+    dest.querySelectorAll('[data-prefix="A"]').forEach((s) => {
       s.onchange = () => {
-        const f = s.dataset.field;
-        const v = s.value;
-        document.querySelectorAll(`[data-prefix="A"][data-field="${CSS.escape(f)}"]`).forEach((x) => (x.value = v));
+        const src = source.querySelector(`select[data-field="${CSS.escape(s.dataset.field)}"]`);
+        if (src) src.value = s.value;
         applyA();
       };
     });
-    document.querySelector('#filtersD [data-reset="A"]').onclick = () => {
-      document.querySelectorAll('[data-prefix="A"]').forEach((s) => (s.value = ""));
-      etaFilter = "";
-      document.querySelectorAll(".chip").forEach((b) => b.classList.remove("on"));
-      applyA();
-    };
+    const reset = dest.querySelector('[data-reset="A"]');
+    if (reset) {
+      reset.onclick = () => {
+        source.querySelectorAll("select").forEach((s) => (s.value = ""));
+        etaFilter = "";
+        document.querySelectorAll(".chip").forEach((b) => b.classList.remove("on"));
+        applyA();
+      };
+    }
   }
 
   function updateStamps(modified, rowCount) {
@@ -454,7 +503,7 @@ const Dashboard = (() => {
       if (!payload) throw new Error("Unable to load dashboard data");
 
       all = payload.records || [];
-      cols = all.length ? Object.keys(all[0]) : [];
+      cols = L.detailColumns(all.length ? Object.keys(all[0]) : []);
 
       updateStamps(payload.modified || status.modified || "—", payload.rowCount || all.length);
       if ($("dashboardDate")) {

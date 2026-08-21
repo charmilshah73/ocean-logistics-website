@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from app.config import ARCHIVE, CURRENT, STAGING, WORKBOOK_FILE
+from app.config import ARCHIVE, CURRENT, OUTPUT, STAGING, WORKBOOK_FILE
 from app.export_data import export_json
+
+# UTC timestamp folder names: 20260818T142320Z
+_VERSION_DIR_RE = re.compile(r"^(\d{8}T\d{6})Z$")
+RETENTION_DAYS = 2
 
 
 def _copy_atomic(src: Path, dest: Path) -> None:
@@ -16,6 +21,58 @@ def _copy_atomic(src: Path, dest: Path) -> None:
     tmp = dest.with_suffix(dest.suffix + ".tmp")
     shutil.copy2(src, tmp)
     os.replace(tmp, dest)
+
+
+def _folder_age_cutoff(days: int = RETENTION_DAYS) -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=days)
+
+
+def _parse_version_mtime(name: str) -> datetime | None:
+    match = _VERSION_DIR_RE.match(name)
+    if not match:
+        return None
+    try:
+        return datetime.strptime(match.group(1), "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def _dir_mtime_utc(path: Path) -> datetime:
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+
+
+def cleanup_old_runs(
+    *,
+    keep_version: str | None = None,
+    retention_days: int = RETENTION_DAYS,
+) -> list[str]:
+    """Remove staging/archive run folders older than retention_days.
+
+    Keeps live paths (current/output/input/logs), history.jsonl, and the
+    just-published version when provided.
+    """
+    cutoff = _folder_age_cutoff(retention_days)
+    removed: list[str] = []
+
+    for root in (STAGING, ARCHIVE):
+        if not root.exists():
+            continue
+        for child in root.iterdir():
+            if not child.is_dir():
+                continue
+            if keep_version and child.name == keep_version:
+                continue
+
+            stamped = _parse_version_mtime(child.name)
+            age_ref = stamped if stamped is not None else _dir_mtime_utc(child)
+            if age_ref >= cutoff:
+                continue
+
+            shutil.rmtree(child, ignore_errors=True)
+            if not child.exists():
+                removed.append(str(child))
+
+    return removed
 
 
 def publish_workbook(
@@ -32,6 +89,7 @@ def publish_workbook(
     shutil.copy2(staged_workbook, archived_wb)
 
     export_result = export_json(archived_wb, version=version, warnings=warnings)
+    OUTPUT.mkdir(parents=True, exist_ok=True)
     _copy_atomic(archived_wb, WORKBOOK_FILE)
 
     # Snapshot published JSON + status into archive.
@@ -49,6 +107,8 @@ def publish_workbook(
     }
     (archive_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     (ARCHIVE / "history.jsonl").open("a", encoding="utf-8").write(json.dumps(manifest) + "\n")
+
+    cleanup_old_runs(keep_version=version)
     return manifest
 
 

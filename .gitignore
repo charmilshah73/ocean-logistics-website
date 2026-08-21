@@ -15,8 +15,10 @@ data/staging/
 data/archive/
 data/input/
 data/logs/
+data/output/
 !data/current/.gitkeep
 !data/staging/.gitkeep
 !data/archive/.gitkeep
 !data/input/.gitkeep
 !data/logs/.gitkeep
+!data/output/.gitkeep

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/ocean.css?v=20260818e">
+  <link rel="stylesheet" href="/static/css/ocean.css?v=20260820d">
 </head>
 <body>
 
@@ -97,7 +97,9 @@
   <main class="wrap">
     <div id="filtersA" class="filters"></div>
     <div class="info-row">
-      <div class="window-note">DSR data from arrived within 2 weeks past and all future records.</div>
+      <div class="window-note">2-week window uses Vessel Arrived when present; if not arrived, ETA to Port of Discharge. Includes all future records.
+        <br>NO CISF shipments are included.
+      </div>
       <div class="refresh-panel">
         <span>Last refreshed</span>
         <b id="refreshStamp">—</b>
@@ -161,7 +163,7 @@
 
   <main class="wrap">
     <div id="filtersD" class="filters"></div>
-    <div class="window-note">Same 2-week operational window and filters as Analysis. Scroll horizontally to view shipment fields.</div>
+    <div class="window-note">Same 2-week window as Analysis (Vessel Arrived first, else ETA to port). Scroll horizontally to view shipment fields.</div>
     <div id="etaButtonsD" class="chips"></div>
     <article class="card">
       <div class="tabletop">
@@ -248,7 +250,7 @@
   </main>
 </section>
 
-<script src="/static/js/logic.js?v=20260818e"></script>
-<script src="/static/js/dashboard.js?v=20260818e"></script>
+<script src="/static/js/logic.js?v=20260818k"></script>
+<script src="/static/js/dashboard.js?v=20260818k"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-"""Run v10_pkg main.py ETL without modifying v10_pkg."""
+"""Run bundled ETL (etl_engine/main.py) inside this website folder."""
 from __future__ import annotations
 
 import os
@@ -6,28 +6,30 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-from app.config import INPUT, STAGING, V10_PKG
+from app.config import ETL_ENGINE, INPUT, OUTPUT, OUTPUT_SHEET_NAME
 
 
 def run_etl(input_dir: Path | None = None, output_dir: Path | None = None) -> int:
     """Execute consolidation; returns process exit code."""
-    input_path = input_dir or INPUT
-    output_path = output_dir or (STAGING / "output")
+    input_path = Path(input_dir or INPUT)
+    output_path = Path(output_dir or OUTPUT)
     output_path.mkdir(parents=True, exist_ok=True)
 
     os.environ["OCEAN_DSR_INPUT_DIR"] = str(input_path)
     os.environ["OCEAN_DSR_OUTPUT_DIR"] = str(output_path)
 
-    if str(V10_PKG) not in sys.path:
-        sys.path.insert(0, str(V10_PKG))
+    engine = str(ETL_ENGINE)
+    if engine in sys.path:
+        sys.path.remove(engine)
+    sys.path.insert(0, engine)
 
-    # Reload config + main so env vars take effect.
     for mod_name in ("config", "main"):
         if mod_name in sys.modules:
             del sys.modules[mod_name]
 
-    import main  # noqa: WPS433 — loaded from v10_pkg via sys.path
-
+    import main  # noqa: WPS433 — loaded from etl_engine via sys.path
+    main.INPUT_DIR = input_path
+    main.OUTPUT_DIR = output_path
     return int(main.main())
 
 
@@ -60,8 +62,6 @@ def etl_summary(output_dir: Path) -> Dict[str, Any]:
     row_count = 0
     if workbook.exists():
         from openpyxl import load_workbook
-
-        from app.config import OUTPUT_SHEET_NAME
 
         wb = load_workbook(workbook, read_only=True, data_only=True)
         if OUTPUT_SHEET_NAME in wb.sheetnames:

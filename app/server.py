@@ -52,6 +52,11 @@ def index():
     return send_from_directory(STATIC, "index.html")
 
 
+@app.get("/index.html")
+def index_html():
+    return send_from_directory(STATIC, "index.html")
+
+
 @app.get("/admin")
 def admin_page():
     return send_from_directory(STATIC, "admin.html")
@@ -152,13 +157,33 @@ def admin_rollback(version: str):
         return jsonify({"ok": False, "error": str(exc)}), 400
 
 
+def _lan_urls(port: int) -> list[str]:
+    import socket
+
+    urls = [f"http://127.0.0.1:{port}"]
+    try:
+        hostname = socket.gethostname()
+        for info in socket.getaddrinfo(hostname, None, socket.AF_INET):
+            ip = info[4][0]
+            if ip.startswith("127.") or ip.startswith("169.254."):
+                continue
+            url = f"http://{ip}:{port}"
+            if url not in urls:
+                urls.append(url)
+    except OSError:
+        pass
+    return urls
+
+
 def main() -> None:
     bootstrap_data()
     from app.config import HOST, PORT
 
     print(f"\nLogistics Control Tower")
-    print(f"Open: http://{HOST}:{PORT}")
-    print(f"Admin: http://{HOST}:{PORT}/admin")
+    print(f"Listening on {HOST}:{PORT}")
+    for url in _lan_urls(PORT):
+        print(f"Open: {url}")
+    print(f"Admin: http://127.0.0.1:{PORT}/admin")
     if JSON_FILE.exists():
         status = read_status()
         print(f"Rows: {status.get('rowCount', '?')} · {status.get('modified', 'unknown')}\n")
@@ -166,7 +191,8 @@ def main() -> None:
         print(f"Bootstrap source: {LEGACY_WORKBOOK}\n")
     else:
         print("No data yet — upload files at /admin\n")
-    app.run(host=HOST, port=PORT, debug=False, threaded=True)
+    # Reloader keeps a leftover 127.0.0.1 socket; LAN demos need a single bind.
+    app.run(host=HOST, port=PORT, debug=False, threaded=True, use_reloader=False)
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ const Logic = (() => {
   }
 
   function anchor(r) {
-    return eta(r) || r["Container Delivered"] || atd(r) || r["Estimated Time of Departure"] || "";
+    return r["Vessel Arrived"] || eta(r) || r["Container Delivered"] || atd(r) || r["Estimated Time of Departure"] || "";
   }
 
   function base(all, days) {
@@ -96,6 +96,15 @@ const Logic = (() => {
     return days < 0 ? "Early by " + bucket : "Delayed by " + bucket;
   }
 
+  function detailFromDays(days) {
+    if (days === null) return "";
+    if (days === 0) return "On Time";
+    const abs = Math.abs(days);
+    const n = abs >= 21 ? "21+" : String(abs);
+    const unit = n === "1" ? "day" : "days";
+    return (days < 0 ? "Early by " : "Delayed by ") + n + " " + unit;
+  }
+
   /**
    * Delivered: ETA To Port of Discharge vs Vessel Arrived
    *   (actual arrival minus planned ETA; positive = delayed)
@@ -103,15 +112,43 @@ const Logic = (() => {
    *   If Dlv Date is missing: Booked ETA Port vs ETA To Port of Discharge
    *   (current ETA minus target; positive = delayed)
    */
-  function etaPerformance(r) {
+  function etaDays(r) {
     const etaPort = r["ETA To Port of Discharge"];
-    if (!etaPort) return "";
+    if (!etaPort) return null;
     if (r["Vessel Arrived"]) {
-      return bucketFromDays(diff(r["Vessel Arrived"], etaPort));
+      return diff(r["Vessel Arrived"], etaPort);
     }
     const target = r["Dlv Date"] || r["Booked ETA Port"];
-    if (!target) return "";
-    return bucketFromDays(diff(etaPort, target));
+    if (!target) return null;
+    return diff(etaPort, target);
+  }
+
+  function etaPerformance(r) {
+    return bucketFromDays(etaDays(r));
+  }
+
+  function etaPerformanceDays(r) {
+    return detailFromDays(etaDays(r));
+  }
+
+  const ETA_COL_WEEK = "ETA Performance";
+  const ETA_COL_DAYS = "Detailed ETA Performance Days";
+
+  function withEtaColumns(r) {
+    return {
+      ...r,
+      [ETA_COL_WEEK]: etaPerformance(r),
+      [ETA_COL_DAYS]: etaPerformanceDays(r),
+    };
+  }
+
+  function detailColumns(keys) {
+    const hide = new Set(["Current Status", ETA_COL_WEEK, ETA_COL_DAYS]);
+    const extra = [ETA_COL_WEEK, ETA_COL_DAYS];
+    const base = (keys || []).filter((k) => !hide.has(k));
+    const i = base.indexOf("Vessel Arrived");
+    if (i < 0) return [...base, ...extra];
+    return [...base.slice(0, i + 1), ...extra, ...base.slice(i + 1)];
   }
 
   function perf(r, type) {
@@ -214,6 +251,16 @@ const Logic = (() => {
     ["Forwarder", "Forwarder"],
   ];
 
+  function classTokens(value) {
+    return [...new Set(String(value || "").split(/[,;]/).map((t) => t.trim()).filter(Boolean))];
+  }
+
+  function fieldMatches(row, field, selected) {
+    if (!selected) return true;
+    if (field === "Class") return classTokens(row.Class).includes(selected);
+    return row[field] === selected;
+  }
+
   return {
     day,
     today,
@@ -232,7 +279,11 @@ const Logic = (() => {
     isOceanMot,
     counts,
     state,
+    etaDays,
     etaPerformance,
+    etaPerformanceDays,
+    withEtaColumns,
+    detailColumns,
     perf,
     avgPort,
     ETA_CHIP_VALUES,
@@ -243,5 +294,7 @@ const Logic = (() => {
     perfColor,
     matchesEtaFilter,
     FILTER_SPECS,
+    classTokens,
+    fieldMatches,
   };
 })();

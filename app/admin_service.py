@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
 
 from app.config import INPUT, MAX_UPLOAD_MB, STAGING
 from app.etl import etl_summary, run_etl
@@ -23,15 +22,37 @@ SOURCE_HINTS = {
     "scanglobal": ("scanglobal", "scan global",),
     "cargomar": ("cargomar",),
     "sinpex": ("sinpex", "china shipment",),
-    "open_order": ("open order",),
-    "hotlist": ("hotlist", "hot list", "corporate hot",),
+    "open_order": ("open order", "open_order"),
+    "hotlist": ("hotlist", "hot list", "hot_list", "corporate hot", "corporate_hot"),
 }
+
+CANONICAL_NAMES = {
+    "hotlist": "Corporate Hot list.xlsx",
+    "open_order": "Open Order Report.xlsx",
+}
+
+def _safe_filename(original: str, source_type: str) -> str:
+    if source_type in CANONICAL_NAMES:
+        return CANONICAL_NAMES[source_type]
+    name = Path(original).name.replace("\x00", "").replace("/", " ").replace("\\", " ").strip()
+    name = " ".join(name.split())
+    if not name.lower().endswith(".xlsx"):
+        name = f"{name or 'upload'}.xlsx"
+    return name
 
 _lock = threading.Lock()
 
 
+def _norm_name(filename: str) -> str:
+    return Path(filename).name.lower().replace("_", " ").replace("-", " ")
+
+
 def _detect_type(filename: str) -> str:
-    name = filename.lower()
+    name = _norm_name(filename)
+    if "hot" in name and "list" in name:
+        return "hotlist"
+    if "open" in name and "order" in name:
+        return "open_order"
     for source_type, hints in SOURCE_HINTS.items():
         if any(h in name for h in hints):
             return source_type
@@ -87,15 +108,32 @@ def process_upload(files: List[FileStorage]) -> Dict[str, Any]:
         staging_output.mkdir(parents=True, exist_ok=True)
 
         saved: List[str] = []
+        used_names: set[str] = set()
         for fs in files:
             if not fs or not fs.filename:
                 continue
-            safe = secure_filename(Path(fs.filename).name)
+            source_type = _detect_type(fs.filename)
+            safe = _safe_filename(fs.filename, source_type)
             if not safe:
                 safe = f"upload_{len(saved)+1}.xlsx"
+            if safe.lower() in used_names:
+                stem = Path(safe).stem
+                safe = f"{stem}_{len(saved)+1}.xlsx"
+            used_names.add(safe.lower())
             dest = staging_input / safe
             fs.save(dest)
             saved.append(safe)
+
+        for path in list(staging_input.glob("*.xlsx")):
+            kind = _detect_type(path.name)
+            canonical = CANONICAL_NAMES.get(kind)
+            if not canonical or path.name == canonical:
+                continue
+            dest = staging_input / canonical
+            if dest.exists() and dest.resolve() != path.resolve():
+                dest.unlink()
+            path.rename(dest)
+            saved = [canonical if name == path.name else name for name in saved]
 
         code = run_etl(staging_input, staging_output)
         summary = etl_summary(staging_output)

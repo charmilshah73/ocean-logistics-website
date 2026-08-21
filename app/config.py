@@ -5,24 +5,25 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-V10_PKG = ROOT.parent / "v10_pkg"
+ETL_ENGINE = ROOT / "etl_engine"
 
 DATA = ROOT / "data"
 CURRENT = DATA / "current"
 STAGING = DATA / "staging"
 ARCHIVE = DATA / "archive"
 INPUT = DATA / "input"
+OUTPUT = DATA / "output"
 LOGS = DATA / "logs"
 
-for folder in (CURRENT, STAGING, ARCHIVE, INPUT, LOGS):
+for folder in (CURRENT, STAGING, ARCHIVE, INPUT, OUTPUT, LOGS):
     folder.mkdir(parents=True, exist_ok=True)
 
 JSON_FILE = CURRENT / "dashboard-data.json"
 STATUS_FILE = CURRENT / "status.json"
-WORKBOOK_FILE = CURRENT / "Consolidated_Ocean_DSR.xlsx"
+WORKBOOK_FILE = OUTPUT / "Consolidated_Ocean_DSR.xlsx"
 OUTPUT_SHEET_NAME = "Consolidated DSR"
 
-HOST = os.environ.get("OCEAN_HOST", "127.0.0.1")
+HOST = os.environ.get("OCEAN_HOST", "0.0.0.0")
 PORT = int(os.environ.get("OCEAN_PORT", "8050"))
 MAX_UPLOAD_MB = int(os.environ.get("OCEAN_MAX_UPLOAD_MB", "80"))
 
@@ -53,7 +54,6 @@ PUBLIC_FIELDS = (
     "ETA Door",
     "Vessel Arrived",
     "Container Delivered",
-    "Current Status",
     "MOT",
 )
 
