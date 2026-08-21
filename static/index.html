@@ -8,9 +8,92 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/ocean.css?v=20260820d">
+  <link rel="stylesheet" href="/static/css/ocean.css?v=20260821c">
 </head>
 <body>
+
+<!-- ═══ PAGE TRANSIT · HELMSMAN ═══ -->
+<div id="voyageLoader" class="voyage-loader" hidden aria-hidden="true" aria-live="polite">
+  <div class="voyage-photo" aria-hidden="true"></div>
+  <div class="voyage-spray" aria-hidden="true"></div>
+  <div class="voyage-rain" aria-hidden="true"></div>
+  <div class="voyage-vignette" aria-hidden="true"></div>
+
+  <div class="voyage-helm" aria-hidden="true">
+    <svg class="voyage-compass" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="48"></circle>
+    </svg>
+    <svg class="voyage-ring" viewBox="0 0 100 100">
+      <circle class="voyage-ring-track" cx="50" cy="50" r="46"></circle>
+      <circle class="voyage-ring-fill" cx="50" cy="50" r="46"></circle>
+    </svg>
+    <div class="voyage-wheel-spin">
+      <svg class="voyage-wheel-svg" viewBox="0 0 400 400">
+        <defs>
+          <linearGradient id="voyageRim" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#c9a06a"/>
+            <stop offset="28%" stop-color="#6b4024"/>
+            <stop offset="62%" stop-color="#3d2414"/>
+            <stop offset="100%" stop-color="#b8894c"/>
+          </linearGradient>
+          <linearGradient id="voyageSpoke" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#d4b07a"/>
+            <stop offset="45%" stop-color="#7a4a28"/>
+            <stop offset="100%" stop-color="#2d1a0e"/>
+          </linearGradient>
+          <radialGradient id="voyageBrass" cx="38%" cy="32%" r="70%">
+            <stop offset="0%" stop-color="#f6e2a8"/>
+            <stop offset="45%" stop-color="#d7b56d"/>
+            <stop offset="100%" stop-color="#8a6a32"/>
+          </radialGradient>
+          <radialGradient id="voyageHub" cx="40%" cy="35%" r="70%">
+            <stop offset="0%" stop-color="#5a3820"/>
+            <stop offset="100%" stop-color="#1a0e08"/>
+          </radialGradient>
+        </defs>
+        <circle cx="200" cy="200" r="152" fill="none" stroke="url(#voyageRim)" stroke-width="30"/>
+        <circle cx="200" cy="200" r="136" fill="none" stroke="#1c100a" stroke-width="4"/>
+        <circle cx="200" cy="200" r="168" fill="none" stroke="#d7b56d" stroke-width="3" opacity="0.45"/>
+        <g fill="url(#voyageSpoke)" stroke="#1a0e08" stroke-width="1.2">
+          <g transform="rotate(0 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+          <g transform="rotate(45 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+          <g transform="rotate(90 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+          <g transform="rotate(135 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+          <g transform="rotate(180 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+          <g transform="rotate(225 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+          <g transform="rotate(270 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+          <g transform="rotate(315 200 200)"><rect x="191" y="46" width="18" height="118" rx="8"/><ellipse cx="200" cy="40" rx="15" ry="24"/></g>
+        </g>
+        <g fill="url(#voyageBrass)">
+          <circle cx="200" cy="48" r="5"/><circle cx="307" cy="93" r="5"/>
+          <circle cx="352" cy="200" r="5"/><circle cx="307" cy="307" r="5"/>
+          <circle cx="200" cy="352" r="5"/><circle cx="93" cy="307" r="5"/>
+          <circle cx="48" cy="200" r="5"/><circle cx="93" cy="93" r="5"/>
+        </g>
+        <circle cx="200" cy="200" r="54" fill="url(#voyageHub)"/>
+        <circle cx="200" cy="200" r="40" fill="url(#voyageBrass)"/>
+        <circle cx="200" cy="200" r="18" fill="#1a0e08"/>
+        <circle cx="200" cy="200" r="8" fill="#f3e0a8"/>
+      </svg>
+    </div>
+  </div>
+
+  <footer class="voyage-dock">
+    <div class="voyage-copy">
+      <h2>Taking the helm</h2>
+      <p id="voyageStatus">Holding course through the swell…</p>
+    </div>
+    <div class="voyage-meter-wrap">
+      <div class="voyage-meter"><div class="voyage-bar" id="voyageBar"></div></div>
+      <div class="voyage-marks"><span>Charts</span><span>Helm</span><span>Landfall</span></div>
+    </div>
+    <div class="voyage-timer">
+      <b id="voyageCount">30</b>
+      <small>sec remaining</small>
+    </div>
+  </footer>
+</div>
+
 
 <!-- ═══ LANDING / MENU ═══ -->
 <section id="landing" class="page active">
@@ -251,6 +334,6 @@
 </section>
 
 <script src="/static/js/logic.js?v=20260818k"></script>
-<script src="/static/js/dashboard.js?v=20260818k"></script>
+<script src="/static/js/dashboard.js?v=20260821c"></script>
 </body>
 </html>

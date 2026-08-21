@@ -11,11 +11,90 @@ const Dashboard = (() => {
   const $ = (id) => document.getElementById(id);
   const L = Logic;
 
-  function showPage(id) {
+  const VOYAGE_MS = 4000;
+  const VOYAGE_LINES = [
+    "Holding course through the swell…",
+    "Reading the charts…",
+    "Steering for the next port…",
+    "Keeping her steady in the weather…",
+    "Landfall ahead…",
+  ];
+  let voyageRaf = 0;
+  let voyageHideTimer = 0;
+  let voyagePending = "";
+
+  function revealPage(id) {
     document.querySelectorAll(".page").forEach((x) => x.classList.toggle("active", x.id === id));
     scrollTo(0, 0);
     if (id === "performance") applyP();
     else if (id === "analysis" || id === "detail") applyA();
+  }
+
+  function finishVoyage() {
+    const overlay = $("voyageLoader");
+    const next = voyagePending;
+    voyagePending = "";
+    if (next) revealPage(next);
+    if (!overlay) return;
+    overlay.classList.remove("on");
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("voyage-locked");
+    clearTimeout(voyageHideTimer);
+    voyageHideTimer = setTimeout(() => {
+      overlay.hidden = true;
+    }, 700);
+  }
+
+  function startVoyage(id) {
+    const overlay = $("voyageLoader");
+    if (!overlay) {
+      revealPage(id);
+      return;
+    }
+    cancelAnimationFrame(voyageRaf);
+    clearTimeout(voyageHideTimer);
+    voyagePending = id;
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+    document.body.classList.add("voyage-locked");
+
+    const bar = $("voyageBar");
+    const status = $("voyageStatus");
+    const count = $("voyageCount");
+    const fill = overlay.querySelector(".voyage-ring-fill");
+    if (bar) {
+      bar.style.animation = "none";
+      void bar.offsetWidth;
+      bar.style.animation = `voyageFill ${VOYAGE_MS}ms linear forwards`;
+    }
+    if (fill) {
+      fill.style.animation = "none";
+      void fill.getBoundingClientRect();
+      fill.style.animation = `voyageRing ${VOYAGE_MS}ms linear forwards`;
+    }
+
+    requestAnimationFrame(() => overlay.classList.add("on"));
+
+    const started = performance.now();
+    const tick = (now) => {
+      const elapsed = now - started;
+      const left = Math.max(0, Math.ceil((VOYAGE_MS - elapsed) / 1000));
+      if (count) count.textContent = String(left);
+      const idx = Math.min(VOYAGE_LINES.length - 1, Math.floor(elapsed / (VOYAGE_MS / VOYAGE_LINES.length)));
+      if (status) status.textContent = VOYAGE_LINES[idx];
+      if (elapsed >= VOYAGE_MS) {
+        finishVoyage();
+        return;
+      }
+      voyageRaf = requestAnimationFrame(tick);
+    };
+    voyageRaf = requestAnimationFrame(tick);
+  }
+
+  function showPage(id) {
+    const current = document.querySelector(".page.active")?.id;
+    if (id === current && !voyagePending) return;
+    startVoyage(id);
   }
 
   function showDetail() {
